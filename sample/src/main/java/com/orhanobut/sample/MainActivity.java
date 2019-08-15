@@ -4,11 +4,7 @@ import android.app.Activity;
 import android.os.Bundle;
 import android.util.Log;
 
-import com.orhanobut.logger.AndroidLogAdapter;
-import com.orhanobut.logger.DiskLogAdapter;
-import com.orhanobut.logger.FormatStrategy;
-import com.orhanobut.logger.Logger;
-import com.orhanobut.logger.PrettyFormatStrategy;
+import com.orhanobut.logger.*;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -82,5 +78,15 @@ public class MainActivity extends Activity {
     Logger.addLogAdapter(new AndroidLogAdapter(formatStrategy));
 
     Logger.w("my log message with my tag");
+
+    LogStrategy logStrategy = DiskLogStrategy.newBuilder()
+        .setMaxBytes(500*1024)
+        .setMaxHistory(60)
+        .setMaxSize(1024*1024*1024)
+        .setFolderName("com.orhanobut.sample")
+        .build();
+    FormatStrategy formatStrategy1 = CsvFormatStrategy.newBuilder().logStrategy(logStrategy).build();
+    Logger.addLogAdapter(new DiskLogAdapter(formatStrategy1));
+    Logger.i("test");
   }
 }

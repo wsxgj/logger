@@ -3,6 +3,21 @@
 
 <img align="right" src='https://github.com/orhanobut/logger/blob/master/art/logger-logo.png' width='128' height='128'/>
 
+### 添加内容
+1. 输出log到文件时,可设置文件夹名,默认为"logger";修改文件名为yyyy-MM-dd_num.csv的格式
+2. 可设置单个log文件大小,默认为500KB
+3. log文件超过限制时删除部分文件,可设置时间和文件夹大小两个限制.时间单位为天,默认为30天,;文件夹大小单位为B,默认为1GB.
+```java
+LogStrategy logStrategy = DiskLogStrategy.newBuilder()
+    .setMaxBytes(500*1024)
+    .setMaxHistory(60)
+    .setMaxSize(1024*1024*1024)
+    .setFolderName("com.orhanobut.sample")
+    .build();
+FormatStrategy formatStrategy = CsvFormatStrategy.newBuilder().logStrategy(logStrategy).build();
+Logger.addLogAdapter(new DiskLogAdapter(formatStrategy));
+```
+
 ### Logger
 Simple, pretty and powerful logger for android
 
@@ -118,6 +133,7 @@ Timber.plant(new Timber.DebugTree() {
 ### License
 <pre>
 Copyright 2018 Orhan Obut
+Copyright 2019 xugj
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

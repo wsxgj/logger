@@ -3,6 +3,7 @@ package com.orhanobut.logger;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
+import java.io.File;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.UnknownHostException;
@@ -154,4 +155,47 @@ final class Utils {
     }
     return obj;
   }
+
+  // Private method, must be invoked will a directory parameter
+
+  /**
+   * Copied from "org.apache.commons.io.sizeOfDirectory()"
+   * the size of a director
+   * @param directory the directory to check
+   * @return the size
+   */
+  public static long sizeOfDirectory(final File directory) {
+    final File[] files = directory.listFiles();
+    if (files == null) {  // null if security restricted
+      return 0L;
+    }
+    long size = 0;
+
+    for (final File file : files) {
+      size += sizeOf0(file); // internal method
+      if (size < 0) {
+        break;
+      }
+    }
+
+    return size;
+  }
+
+
+  // Internal method - does not check existence
+
+  /**
+   * the size of a file
+   * @param file the file to check
+   * @return the size of the file
+   */
+  private static long sizeOf0(final File file) {
+    if (file.isDirectory()) {
+      return sizeOfDirectory(file);
+    } else {
+      return file.length(); // will be 0 if file does not exist
+    }
+  }
+
+
 }

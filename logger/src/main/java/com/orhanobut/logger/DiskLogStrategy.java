@@ -1,14 +1,16 @@
 package com.orhanobut.logger;
 
-import android.os.Handler;
-import android.os.Looper;
-import android.os.Message;
+import android.os.*;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
 
 import static com.orhanobut.logger.Utils.checkNotNull;
 
@@ -18,12 +20,123 @@ import static com.orhanobut.logger.Utils.checkNotNull;
  *
  * Writes all logs to the disk with CSV format.
  */
-public class DiskLogStrategy implements LogStrategy {
+public class DiskLogStrategy implements LogStrategy, RemoveFile {
+  @NonNull
+  private final Handler handler;
+  private final long MAX_SIZE;
+  private final int MAX_HISTORY;
 
-  @NonNull private final Handler handler;
+  public DiskLogStrategy(Builder builder) {
+    checkNotNull(builder);
+    handler = builder.handler;
+    MAX_SIZE = builder.maxSize;
+    MAX_HISTORY = builder.maxHistory;
 
-  public DiskLogStrategy(@NonNull Handler handler) {
-    this.handler = checkNotNull(handler);
+    new Thread(new Runnable() {
+      @Override public void run() {
+        try {
+          removeFileBySize();
+          removeFileByHistory();
+        } catch (Exception e) {
+          e.printStackTrace();
+        }
+      }
+    }).start();
+  }
+
+  public static Builder newBuilder() {
+    return new Builder();
+  }
+
+  @Override
+  public void removeFileBySize() throws ParseException {
+    String diskPath = Environment.getExternalStorageDirectory().getAbsolutePath();
+    String folder = diskPath + File.separatorChar + "logger";
+    SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+    Calendar limitCalendar = Calendar.getInstance();
+    limitCalendar.add(Calendar.DAY_OF_YEAR, -MAX_HISTORY / 2);
+    Date limitDate = limitCalendar.getTime();
+    File folderFile = new File(folder);
+    if (folderFile.exists() && Utils.sizeOfDirectory(folderFile)> MAX_SIZE) {
+      File[] logFiles = folderFile.listFiles();
+      for (File logfile : logFiles) {
+        Date date = dateFormat.parse(logfile.getName());
+        if (date.before(limitDate)) {
+          logfile.delete();
+        }
+      }
+    }
+
+  }
+
+  @Override
+  public void removeFileByHistory() throws ParseException {
+    String diskPath = Environment.getExternalStorageDirectory().getAbsolutePath();
+    String folder = diskPath + File.separatorChar + "logger";
+    SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+    Calendar limitCalendar = Calendar.getInstance();
+    limitCalendar.add(Calendar.DAY_OF_YEAR, -MAX_HISTORY);
+    Date limitDate = limitCalendar.getTime();
+    File folderFile = new File(folder);
+
+    if (folderFile.exists()) {
+      File[] logFiles = folderFile.listFiles();
+      for (File logfile : logFiles) {
+        Date date = dateFormat.parse(logfile.getName());
+        if (date.before(limitDate)) {
+          logfile.delete();
+        }
+      }
+    }
+  }
+
+  public static class Builder {
+    Handler handler;
+    // folderSize Byte
+    long maxSize = 1024 * 1024 * 1024;
+    // fileSize Byte
+    int maxBytes = 500 * 1024; // 500K averages to a 4000 lines per file
+    // history day
+    int maxHistory = 60;
+
+    String folderName = "logger";
+
+    public Builder setHandler() {
+      String diskPath = Environment.getExternalStorageDirectory().getAbsolutePath();
+      String folder = diskPath + File.separatorChar + "logger" + File.separatorChar + folderName;
+
+      HandlerThread ht = new HandlerThread("AndroidFileLogger." + folder);
+      ht.start();
+      handler = new DiskLogStrategy.WriteHandler(ht.getLooper(), folder, this.maxBytes);
+      return this;
+    }
+
+    public Builder setMaxSize(int maxSize) {
+      this.maxSize = maxSize;
+      return this;
+    }
+
+    public Builder setMaxBytes(int maxBytes) {
+      this.maxBytes = maxBytes;
+      return this;
+    }
+
+
+    public Builder setMaxHistory(int maxHistory) {
+      this.maxHistory = maxHistory;
+      return this;
+    }
+
+    public Builder setFolderName(String folderName) {
+      this.folderName = folderName;
+      return this;
+    }
+
+
+    public DiskLogStrategy build() {
+      this.setHandler();
+      return new DiskLogStrategy(this);
+    }
   }
 
   @Override public void log(int level, @Nullable String tag, @NonNull String message) {
@@ -49,7 +162,11 @@ public class DiskLogStrategy implements LogStrategy {
       String content = (String) msg.obj;
 
       FileWriter fileWriter = null;
-      File logFile = getLogFile(folder, "logs");
+      Date now = new Date();
+      SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+
+      String date = dateFormat.format(now);
+      File logFile = getLogFile(folder, date);
 
       try {
         fileWriter = new FileWriter(logFile, true);
@@ -112,5 +229,6 @@ public class DiskLogStrategy implements LogStrategy {
 
       return newFile;
     }
+
   }
 }
